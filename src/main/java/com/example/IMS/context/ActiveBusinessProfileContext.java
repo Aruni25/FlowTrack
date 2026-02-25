@@ -1,135 +1,162 @@
 package com.example.IMS.context;
 
+import org.springframework.context.annotation.Scope;
+import org.springframework.context.annotation.ScopedProxyMode;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.annotation.SessionScope;
 
 import java.io.Serializable;
 
 /**
- * Active Business Profile Context
- * Manages the currently active business profile for the logged-in user
+ * Session-scoped context for active business profile
+ * Enables multi-tenant operations by tracking which business profile is currently active
  * 
- * PURPOSE:
- * - Tenant isolation: Ensures all operations are scoped to the active business
- * - Multi-business support: User can switch between their businesses
- * - Security: Prevents cross-profile data access
+ * Spring Session-Scoped Bean:
+ * - One instance per HTTP session
+ * - Automatically cleaned up when session expires
+ * - Thread-safe for the session owner
  * 
- * USAGE:
- * 1. After user login, show list of their business profiles
- * 2. User selects which business to work with
- * 3. Store selected business_profile_id in this context
- * 4. All subsequent queries MUST filter by this business_profile_id
+ * Security:
+ * - Validates user ID matches the user who set the active profile
+ * - Prevents cross-user profile access via session
  * 
- * IMPLEMENTATION:
- * - Session-scoped bean (one instance per HTTP session)
- * - Automatically cleared when session expires
- * - Thread-safe within session boundary
- * 
- * SECURITY CONSIDERATIONS:
- * - Always validate that the business_profile_id belongs to the logged-in user
- * - Re-validate on every profile switch
- * - Clear context on logout
- * - Never trust client-side business_profile_id without server-side validation
+ * Use Case:
+ * When a user has multiple business profiles (as OWNER or team member),
+ * they select which one is "active" for current operations.
+ * All tenant-scoped queries use this context to filter data.
  */
 @Component
-@SessionScope
+@Scope(value = "session", proxyMode = ScopedProxyMode.TARGET_CLASS)
 public class ActiveBusinessProfileContext implements Serializable {
     
     private static final long serialVersionUID = 1L;
     
     /**
-     * Currently active business profile ID
-     * null = no business selected (user must select one)
+     * ID of the currently active business profile
      */
     private Long activeBusinessProfileId;
     
     /**
-     * Business name for display purposes
+     * Name of the active business profile (for display purposes)
      */
-    private String activeBusinessName;
+    private String activeBusinessProfileName;
     
     /**
-     * User ID who owns this context
-     * Used for validation
+     * User ID who set this active profile
+     * Used for security validation
      */
     private Long userId;
     
-    // Constructors
-    public ActiveBusinessProfileContext() {}
-    
-    // Getters and Setters
-    public Long getActiveBusinessProfileId() {
-        return activeBusinessProfileId;
-    }
-    
-    public void setActiveBusinessProfileId(Long activeBusinessProfileId) {
-        this.activeBusinessProfileId = activeBusinessProfileId;
-    }
-    
-    public String getActiveBusinessName() {
-        return activeBusinessName;
-    }
-    
-    public void setActiveBusinessName(String activeBusinessName) {
-        this.activeBusinessName = activeBusinessName;
-    }
-    
-    public Long getUserId() {
-        return userId;
-    }
-    
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
-    
-    // Helper methods
+    /**
+     * Timestamp when the profile was set active
+     */
+    private long activatedAt;
     
     /**
-     * Check if a business profile is currently active
+     * Set the active business profile for this session
+     * 
+     * @param profileId business profile ID
+     * @param profileName business profile legal name
+     * @param userId user ID setting the active profile
+     */
+    public void setActiveBusinessProfile(Long profileId, String profileName, Long userId) {
+        this.activeBusinessProfileId = profileId;
+        this.activeBusinessProfileName = profileName;
+        this.userId = userId;
+        this.activatedAt = System.currentTimeMillis();
+    }
+    
+    /**
+     * Check if there is an active business profile
+     * 
+     * @return true if a profile is active
      */
     public boolean hasActiveBusinessProfile() {
         return activeBusinessProfileId != null;
     }
     
     /**
-     * Set the active business profile
+     * Get the active business profile ID
      * 
-     * @param businessProfileId The business profile ID to activate
-     * @param businessName The business name for display
-     * @param userId The user ID who owns this business
+     * @return profile ID
+     * @throws IllegalStateException if no active profile
      */
-    public void setActiveBusinessProfile(Long businessProfileId, String businessName, Long userId) {
-        this.activeBusinessProfileId = businessProfileId;
-        this.activeBusinessName = businessName;
-        this.userId = userId;
+    public Long getActiveBusinessProfileId() {
+        if (!hasActiveBusinessProfile()) {
+            throw new IllegalStateException("No active business profile selected");
+        }
+        return activeBusinessProfileId;
     }
     
     /**
-     * Clear the active business profile
-     * Call this on logout or profile switch
+     * Get the active business profile name
+     * 
+     * @return profile name
+     * @throws IllegalStateException if no active profile
+     */
+    public String getActiveBusinessProfileName() {
+        if (!hasActiveBusinessProfile()) {
+            throw new IllegalStateException("No active business profile selected");
+        }
+        return activeBusinessProfileName;
+    }
+    
+    /**
+     * Get the user ID who set the active profile
+     * 
+     * @return user ID
+     * @throws IllegalStateException if no active profile
+     */
+    public Long getUserId() {
+        if (!hasActiveBusinessProfile()) {
+            throw new IllegalStateException("No active business profile selected");
+        }
+        return userId;
+    }
+    
+    /**
+     * Validate that the requesting user matches the session user
+     * Security check to prevent cross-user access
+     * 
+     * @param requestingUserId user ID from the request
+     * @throws SecurityException if user ID doesn't match
+     */
+    public void validateUser(Long requestingUserId) {
+        if (!hasActiveBusinessProfile()) {
+            throw new IllegalStateException("No active business profile selected");
+        }
+        
+        if (!this.userId.equals(requestingUserId)) {
+            throw new SecurityException(
+                "User ID mismatch. Session user: " + this.userId + ", requesting user: " + requestingUserId
+            );
+        }
+    }
+    
+    /**
+     * Clear the active business profile from session
+     * Called on logout or explicit profile deselection
      */
     public void clearActiveBusinessProfile() {
         this.activeBusinessProfileId = null;
-        this.activeBusinessName = null;
+        this.activeBusinessProfileName = null;
         this.userId = null;
+        this.activatedAt = 0;
     }
     
     /**
-     * Validate that the provided user ID matches the context user
+     * Get session information for debugging/logging
      * 
-     * @param userIdToValidate The user ID to validate
-     * @return true if valid, false otherwise
+     * @return formatted session info
      */
-    public boolean validateUser(Long userIdToValidate) {
-        return userId != null && userId.equals(userIdToValidate);
-    }
-    
-    @Override
-    public String toString() {
-        return "ActiveBusinessProfileContext{" +
-                "activeBusinessProfileId=" + activeBusinessProfileId +
-                ", activeBusinessName='" + activeBusinessName + '\'' +
-                ", userId=" + userId +
-                '}';
+    public String getSessionInfo() {
+        if (!hasActiveBusinessProfile()) {
+            return "No active business profile";
+        }
+        
+        long activeSeconds = (System.currentTimeMillis() - activatedAt) / 1000;
+        return String.format(
+            "Active Profile: %s (ID: %d), User: %d, Active for: %d seconds",
+            activeBusinessProfileName, activeBusinessProfileId, userId, activeSeconds
+        );
     }
 }
