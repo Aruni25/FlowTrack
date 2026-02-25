@@ -42,23 +42,55 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         http
             .csrf().disable()
             .authorizeRequests()
+                // Public resources
                 .antMatchers("/css/**", "/js/**", "/images/**", "/api/chatbot/**").permitAll()
-                .antMatchers("/register", "/login").permitAll()
-                .antMatchers("/admin/**").hasAuthority("ROLE_ADMIN")
-                .antMatchers("/ItemCreate", "/ItemEdit/**", "/ItemDelete/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_MANAGER")
-                .antMatchers("/vendors/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_MANAGER")
+                .antMatchers("/", "/home", "/landing", "/about", "/pricing").permitAll()
+                
+                // Registration & Authentication
+                .antMatchers("/register/**", "/login").permitAll()
+                
+                // Platform Admin Routes
+                .antMatchers("/admin/**", "/platform/**").hasAuthority("ROLE_PLATFORM_ADMIN")
+                
+                // Retailer Routes
+                .antMatchers("/retailer/**", "/inventory/**", "/transactions/**").hasAuthority("ROLE_RETAILER")
+                
+                // Vendor Routes
+                .antMatchers("/vendor/**", "/orders/**", "/products/**").hasAuthority("ROLE_VENDOR")
+                
+                // Investor Routes
+                .antMatchers("/investor/**", "/investments/**", "/portfolio/**").hasAuthority("ROLE_INVESTOR")
+                
+                // Legacy routes - will be refactored
+                .antMatchers("/ItemCreate", "/ItemEdit/**", "/ItemDelete/**").hasAnyAuthority("ROLE_PLATFORM_ADMIN", "ROLE_RETAILER")
+                .antMatchers("/vendors/**").hasAnyAuthority("ROLE_PLATFORM_ADMIN", "ROLE_RETAILER")
+                
                 .anyRequest().authenticated()
             .and()
             .formLogin()
                 .loginPage("/login")
                 .loginProcessingUrl("/login")
-                .defaultSuccessUrl("/", true)
+                .successHandler((request, response, authentication) -> {
+                    // Role-based redirect after login
+                    String role = authentication.getAuthorities().iterator().next().getAuthority();
+                    if (role.equals("ROLE_PLATFORM_ADMIN")) {
+                        response.sendRedirect("/admin/dashboard");
+                    } else if (role.equals("ROLE_RETAILER")) {
+                        response.sendRedirect("/retailer/dashboard");
+                    } else if (role.equals("ROLE_VENDOR")) {
+                        response.sendRedirect("/vendor/dashboard");
+                    } else if (role.equals("ROLE_INVESTOR")) {
+                        response.sendRedirect("/investor/dashboard");
+                    } else {
+                        response.sendRedirect("/");
+                    }
+                })
                 .failureUrl("/login?error=true")
                 .permitAll()
             .and()
             .logout()
                 .logoutUrl("/logout")
-                .logoutSuccessUrl("/login?logout=true")
+                .logoutSuccessUrl("/landing?logout=true")
                 .permitAll();
     }
 }

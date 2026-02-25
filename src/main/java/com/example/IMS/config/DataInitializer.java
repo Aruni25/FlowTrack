@@ -36,32 +36,32 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Create roles if they don't exist
-        createRoleIfNotExists("ROLE_ADMIN");
-        createRoleIfNotExists("ROLE_MANAGER");
-        createRoleIfNotExists("ROLE_STAFF");
-        createRoleIfNotExists("ROLE_USER");
+        // Create roles if they don't exist - New FlowTrack SaaS Model
+        createRoleIfNotExists("ROLE_PLATFORM_ADMIN");
+        createRoleIfNotExists("ROLE_RETAILER");
+        createRoleIfNotExists("ROLE_VENDOR");
+        createRoleIfNotExists("ROLE_INVESTOR");
 
         // Create item types if they don't exist
         createItemTypeIfNotExists("Stationary");
         createItemTypeIfNotExists("Furniture");
         createItemTypeIfNotExists("Electronics");
 
-        // Create default admin user if no users exist
+        // Create default platform admin user if no users exist
         if (userRepository.count() == 0) {
             User admin = new User();
             admin.setUsername("admin");
-            admin.setEmail("admin@ims.com");
+            admin.setEmail("admin@flowtrack.com");
             admin.setPassword(passwordEncoder.encode("admin123"));
-            admin.setFirstName("System");
+            admin.setFirstName("Platform");
             admin.setLastName("Administrator");
             admin.setEnabled(true);
             
-            Role adminRole = roleRepository.findByName("ROLE_ADMIN").orElseThrow();
+            Role adminRole = roleRepository.findByName("ROLE_PLATFORM_ADMIN").orElseThrow();
             admin.addRole(adminRole);
             
             userRepository.save(admin);
-            System.out.println("✅ Default admin user created - Username: admin, Password: admin123");
+            System.out.println("✅ Default Platform Admin created - Username: admin, Password: admin123");
         }
 
         // Create sample data for testing
