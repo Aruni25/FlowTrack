@@ -2,13 +2,17 @@ package com.example.IMS.service;
 
 import com.example.IMS.dto.AddBankAccountRequest;
 import com.example.IMS.dto.BankDetailsDTO;
+import com.example.IMS.dto.verification.VerificationRequest;
+import com.example.IMS.dto.verification.VerificationResult;
 import com.example.IMS.model.enums.BankVerificationStatus;
+import com.example.IMS.model.enums.VerificationType;
 import com.example.IMS.model.BankDetails;
 import com.example.IMS.model.BusinessProfile;
 import com.example.IMS.model.BusinessProfileRole;
 import com.example.IMS.repository.BankDetailsRepository;
 import com.example.IMS.repository.BusinessProfileRepository;
 import com.example.IMS.repository.BusinessProfileRoleRepository;
+import com.example.IMS.service.verification.VerificationOrchestrator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +48,9 @@ public class BankDetailsService {
     
     @Autowired
     private BusinessProfileRoleRepository roleRepository;
+    
+    @Autowired
+    private VerificationOrchestrator verificationOrchestrator;
     
     // ========================================================================
     // CREATE OPERATIONS
@@ -83,6 +90,30 @@ public class BankDetailsService {
         // Save (trigger will handle primary account uniqueness)
         BankDetails saved = bankDetailsRepository.save(bankDetails);
         logger.info("Added bank account {} to business profile {}", saved.getId(), businessProfileId);
+        
+        // Trigger bank verification (penny drop) if verification is enabled
+        try {
+            VerificationRequest verificationRequest = VerificationRequest.forBank(
+                businessProfileId,
+                saved.getId(),
+                saved.getAccountNumber(),  // Decrypted by @Convert annotation
+                saved.getIfscCode(),
+                saved.getAccountHolderName()
+            );
+            
+            VerificationResult result = verificationOrchestrator.executeVerification(verificationRequest);
+            
+            if (result.isSuccess()) {
+                logger.info("Bank verification successful for account {}", saved.getId());
+                // Note: VerificationLog is saved in orchestrator, status update can be done via scheduled job
+            } else {
+                logger.warn("Bank verification failed for account {}: {}", 
+                    saved.getId(), result.getMessage());
+            }
+        } catch (Exception e) {
+            // Log error but don't fail account creation
+            logger.error("Failed to trigger bank verification for account {}", saved.getId(), e);
+        }
         
         return convertToDTO(saved);
     }

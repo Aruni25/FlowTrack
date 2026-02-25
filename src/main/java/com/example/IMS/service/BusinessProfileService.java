@@ -3,15 +3,18 @@ package com.example.IMS.service;
 import com.example.IMS.context.ActiveBusinessProfileContext;
 import com.example.IMS.dto.BusinessProfileDTO;
 import com.example.IMS.dto.CreateBusinessProfileRequest;
+import com.example.IMS.dto.verification.VerificationResult;
 import com.example.IMS.model.enums.BusinessRole;
 import com.example.IMS.model.enums.OnboardingStage;
 import com.example.IMS.model.enums.VerificationStatus;
+import com.example.IMS.model.enums.VerificationType;
 import com.example.IMS.model.BusinessProfile;
 import com.example.IMS.model.BusinessProfileRole;
 import com.example.IMS.model.User;
 import com.example.IMS.repository.BusinessProfileRepository;
 import com.example.IMS.repository.BusinessProfileRoleRepository;
 import com.example.IMS.repository.IUserRepository;
+import com.example.IMS.service.verification.VerificationOrchestrator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityNotFoundException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -50,6 +54,9 @@ public class BusinessProfileService {
     
     @Autowired
     private ActiveBusinessProfileContext activeContext;
+    
+    @Autowired
+    private VerificationOrchestrator verificationOrchestrator;
     
     // ========================================================================
     // CREATE OPERATIONS
@@ -108,6 +115,21 @@ public class BusinessProfileService {
         
         // Set as active business profile
         activeContext.setActiveBusinessProfile(savedProfile.getId(), savedProfile.getLegalBusinessName(), userId);
+        
+        // Trigger automatic verifications (GST, PAN, CIN) if enabled
+        try {
+            Map<VerificationType, VerificationResult> verificationResults = 
+                verificationOrchestrator.autoTriggerVerifications(savedProfile.getId());
+            
+            if (!verificationResults.isEmpty()) {
+                logger.info("Auto-triggered {} verifications for business profile {}", 
+                    verificationResults.size(), savedProfile.getId());
+            }
+        } catch (Exception e) {
+            // Log error but don't fail profile creation
+            logger.error("Failed to auto-trigger verifications for business profile {}", 
+                savedProfile.getId(), e);
+        }
         
         return convertToDTO(savedProfile, userId);
     }
@@ -407,5 +429,60 @@ public class BusinessProfileService {
             return "****";
         }
         return pan.substring(0, 5) + "****" + pan.substring(9);
+    }
+    
+    // ========================================================================
+    // VERIFICATION OPERATIONS (Manual Retry)
+    // ========================================================================
+    
+    /**
+     * Manually trigger GST verification for a business profile
+     * Can be used to retry failed verifications or re-verify after GSTIN update
+     * 
+     * @param profileId business profile ID
+     * @param userId user requesting verification
+     * @return verification result
+     * @throws AccessDeniedException if user doesn't have access
+     */
+    public VerificationResult verifyGst(Long profileId, Long userId) {
+        // Verify user has access to this profile
+        getBusinessProfileWithAccessCheck(profileId, userId);
+        
+        logger.info("User {} manually triggered GST verification for business profile {}", userId, profileId);
+        return verificationOrchestrator.retryVerification(profileId, VerificationType.GST);
+    }
+    
+    /**
+     * Manually trigger PAN verification for a business profile
+     * Can be used to retry failed verifications or re-verify after PAN update
+     * 
+     * @param profileId business profile ID
+     * @param userId user requesting verification
+     * @return verification result
+     * @throws AccessDeniedException if user doesn't have access
+     */
+    public VerificationResult verifyPan(Long profileId, Long userId) {
+        // Verify user has access to this profile
+        getBusinessProfileWithAccessCheck(profileId, userId);
+        
+        logger.info("User {} manually triggered PAN verification for business profile {}", userId, profileId);
+        return verificationOrchestrator.retryVerification(profileId, VerificationType.PAN);
+    }
+    
+    /**
+     * Manually trigger CIN verification for a business profile
+     * Can be used to retry failed verifications or re-verify after CIN update
+     * 
+     * @param profileId business profile ID
+     * @param userId user requesting verification
+     * @return verification result
+     * @throws AccessDeniedException if user doesn't have access
+     */
+    public VerificationResult verifyCin(Long profileId, Long userId) {
+        // Verify user has access to this profile
+        getBusinessProfileWithAccessCheck(profileId, userId);
+        
+        logger.info("User {} manually triggered CIN verification for business profile {}", userId, profileId);
+        return verificationOrchestrator.retryVerification(profileId, VerificationType.CIN);
     }
 }

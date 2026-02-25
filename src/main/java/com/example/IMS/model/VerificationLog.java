@@ -85,6 +85,20 @@ public class VerificationLog {
     private String errorMessage;
     
     /**
+     * HTTP status code from API response
+     * Used for debugging and monitoring
+     */
+    @Column(name = "http_status_code")
+    private Integer httpStatusCode;
+    
+    /**
+     * Execution time in milliseconds
+     * Used for performance monitoring
+     */
+    @Column(name = "execution_time_ms")
+    private Long executionTimeMs;
+    
+    /**
      * IP address of the request initiator
      * For security audit and fraud detection
      */
@@ -188,6 +202,22 @@ public class VerificationLog {
     
     public void setErrorMessage(String errorMessage) {
         this.errorMessage = errorMessage;
+    }
+    
+    public Integer getHttpStatusCode() {
+        return httpStatusCode;
+    }
+    
+    public void setHttpStatusCode(Integer httpStatusCode) {
+        this.httpStatusCode = httpStatusCode;
+    }
+    
+    public Long getExecutionTimeMs() {
+        return executionTimeMs;
+    }
+    
+    public void setExecutionTimeMs(Long executionTimeMs) {
+        this.executionTimeMs = executionTimeMs;
     }
     
     public String getIpAddress() {

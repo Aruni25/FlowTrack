@@ -52,7 +52,7 @@ public class SensitiveDataEncryptionConverter implements AttributeConverter<Stri
     // This key should be 32 bytes (256 bits) for AES-256
     // Current fallback is for development only - REPLACE IN PRODUCTION
     private static final String SECRET_KEY = System.getenv()
-        .getOrDefault("ENCRYPTION_SECRET_KEY", "FlowTrack2026SecKey32ByteKey!!"); // 32 chars for AES-256
+        .getOrDefault("ENCRYPTION_SECRET_KEY", "FlowTrack2026-SecretKey-32Bytes!"); // Exactly 32 bytes for AES-256
     
     /**
      * Encrypt data before storing to database using AES-GCM

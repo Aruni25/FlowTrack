@@ -121,6 +121,18 @@
 		<artifactId>flyway-mysql</artifactId>
 	</dependency>
 
+	<!-- WebFlux for Reactive WebClient (Verification APIs) -->
+	<dependency>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-webflux</artifactId>
+	</dependency>
+	
+	<!-- Reactor Netty HTTP Client (WebClient transport) -->
+	<dependency>
+		<groupId>io.projectreactor.netty</groupId>
+		<artifactId>reactor-netty-http</artifactId>
+	</dependency>
+
 	</dependencies>
 
 	<build>
