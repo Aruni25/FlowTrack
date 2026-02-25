@@ -15,4 +15,9 @@ public class LandingController {
     public String showHomePage() {
         return "redirect:/landing";
     }
+    
+    @GetMapping("/get-started")
+    public String showRoleSelectionPage() {
+        return "choose-role";
+    }
 }
