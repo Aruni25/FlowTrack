@@ -112,6 +112,35 @@
             opacity: 0.9; transform: translateY(-1px);
         }
 
+        /* Active subscription card */
+        .active-sub-card {
+            background: white; border-radius: 20px;
+            border: 2px solid #667eea;
+            padding: 2rem; margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(102,126,234,0.12);
+        }
+        .sub-plan-badge {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 1.25rem; border-radius: 50px;
+            font-weight: 700; font-size: 1rem; margin-bottom: 0.75rem;
+        }
+        .sub-plan-badge.CORE   { background:#ebf4ff; color:#2b6cb0; }
+        .sub-plan-badge.PREMIUM{ background:#faf5ff; color:#805ad5; }
+        .sub-plan-badge.BASIC  { background:#f0fff4; color:#276749; }
+        .sub-plan-badge.STANDARD { background:#fffaf0; color:#c05621; }
+        .sub-info-row { display:flex; gap:2rem; flex-wrap:wrap; margin:1rem 0; }
+        .sub-info-item .label { font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; color:#718096; font-weight:600; }
+        .sub-info-item .value { font-size:1rem; font-weight:700; color:#2d3748; margin-top:0.2rem; }
+        .days-badge {
+            display:inline-block; padding:0.25rem 0.75rem;
+            border-radius:50px; font-size:0.82rem; font-weight:600;
+        }
+        .days-ok  { background:#f0fff4; color:#276749; }
+        .days-warn{ background:#fffbeb; color:#92400e; }
+        .days-exp { background:#fff5f5; color:#c53030; }
+        .change-plan-toggle { cursor:pointer; color:#667eea; font-size:0.88rem; font-weight:600; }
+        .change-plan-toggle:hover { text-decoration:underline; }
+
         /* Compare Table */
         .compare-table { font-size: 0.9rem; }
         .compare-table th { font-weight: 600; color: #4a5568; }
@@ -171,95 +200,219 @@
 
     <!-- Page title -->
     <div class="text-center mb-4">
-        <h3 class="fw-700">Choose Your Plan</h3>
-        <p class="text-muted">Start free with Core, or unlock the full platform with Premium</p>
+        <h3 class="fw-700" th:text="${profile.hasActiveSubscription() ? 'Your Active Subscription' : 'Choose Your Plan'}">Choose Your Plan</h3>
+        <p class="text-muted" th:text="${profile.hasActiveSubscription() ? 'Your subscription is active. You can renew or change your plan below.' : 'Start free with Core, or unlock the full platform with Premium'}">Start free with Core, or unlock the full platform with Premium</p>
     </div>
 
-    <!-- Verification gate banner -->
-    <div th:if="${profile.verificationStatus?.name() != 'VERIFIED'}" class="alert mb-4 d-flex align-items-start gap-3" style="background:#fff8e1;border:1px solid #f6c026;border-radius:12px;padding:1.25rem 1.5rem;">
-        <i class="fas fa-lock" style="color:#d69e2e;font-size:1.4rem;margin-top:2px;"></i>
-        <div>
-            <strong style="color:#744210;">Subscription locked until your profile is verified</strong>
-            <p class="mb-1 mt-1" style="color:#744210;font-size:0.9rem;">
-                Our team needs to verify your business profile before you can purchase a plan.
-                Once verified (usually within 1–2 business days), return here to subscribe.
-            </p>
-            <span th:switch="${profile.verificationStatus?.name()}">
-                <span th:case="'PENDING'" class="badge" style="background:#f6c026;color:#744210;"><i class="fas fa-clock me-1"></i> Under Review — Please wait for admin approval</span>
-                <span th:case="'REJECTED'" class="badge bg-danger"><i class="fas fa-times-circle me-1"></i> Rejected — Please re-submit your profile for verification</span>
-                <span th:case="*" class="badge bg-secondary"><i class="fas fa-edit me-1"></i> Draft — Please submit your profile for verification first</span>
+    <!-- ================================================================
+         ACTIVE SUBSCRIPTION VIEW — shown when profile already has a plan
+         ================================================================ -->
+    <div th:if="${profile.hasActiveSubscription()}">
+
+        <!-- Current plan card -->
+        <div class="active-sub-card mb-4">
+            <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+                <div>
+                    <div class="text-muted mb-2" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Current Plan</div>
+                    <div th:class="'sub-plan-badge ' + ${profile.subscriptionPlan}">
+                        <i class="fas fa-crown"></i>
+                        <span th:text="${profile.subscriptionPlan}">PLAN</span> Plan
+                    </div>
+                </div>
+                <div th:with="daysLeft=${profile.subscriptionExpiryDate != null ? T(java.time.temporal.ChronoUnit).DAYS.between(T(java.time.LocalDate).now(), profile.subscriptionExpiryDate) : 0}">
+                    <div class="text-muted mb-1" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Days Remaining</div>
+                    <span th:class="'days-badge ' + (${daysLeft > 7} ? 'days-ok' : (${daysLeft > 0} ? 'days-warn' : 'days-exp'))">
+                        <i class="fas fa-clock me-1"></i>
+                        <span th:text="${daysLeft > 0 ? daysLeft + ' days left' : 'Expired'}">30 days left</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="sub-info-row">
+                <div class="sub-info-item">
+                    <div class="label">Started</div>
+                    <div class="value" th:text="${profile.subscriptionStartDate != null ? #temporals.format(profile.subscriptionStartDate, 'dd MMM yyyy') : '—'}">—</div>
+                </div>
+                <div class="sub-info-item">
+                    <div class="label">Valid Until</div>
+                    <div class="value" th:text="${profile.subscriptionExpiryDate != null ? #temporals.format(profile.subscriptionExpiryDate, 'dd MMM yyyy') : '—'}">—</div>
+                </div>
+                <div class="sub-info-item">
+                    <div class="label">Business</div>
+                    <div class="value" th:text="${profile.legalBusinessName}">—</div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap mt-2">
+                <a th:href="@{/retailer/dashboard}" class="btn btn-primary btn-sm px-3">
+                    <i class="fas fa-tachometer-alt me-1"></i> Go to Dashboard
+                </a>
+                <a th:href="@{/business-profile/review(profileId=${profileId})}" class="btn btn-outline-success btn-sm px-3">
+                    <i class="fas fa-arrow-right me-1"></i> Continue to Review
+                </a>
+            </div>
+        </div>
+
+        <!-- Expand: change / renew plan -->
+        <div class="mb-3">
+            <span class="change-plan-toggle" onclick="document.getElementById('changePlanSection').classList.toggle('d-none')">
+                <i class="fas fa-sync-alt me-1"></i> Renew or change your plan
             </span>
         </div>
+
+        <div id="changePlanSection" class="d-none">
+            <hr style="border-color:#e2e8f0; margin-bottom:1.5rem;">
+            <p class="text-muted mb-3" style="font-size:0.9rem;">Selecting a new plan will start a fresh 1-month subscription from today.</p>
+
+            <!-- Plan Cards (renew/upgrade context) -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="plan-card" id="coreCard">
+                        <div class="plan-icon" style="background:#ebf4ff;"><i class="fas fa-seedling" style="color:#4299e1;"></i></div>
+                        <div class="plan-name text-primary">Core</div>
+                        <div class="text-muted" style="font-size:0.85rem;">For small / growing businesses</div>
+                        <div class="plan-price" style="color:#4299e1;">&#8377;500 <small>/ month</small></div>
+                        <hr class="plan-divider">
+                        <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Inventory tracking (up to 500 SKUs)</span></div>
+                        <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Supplier management (up to 10)</span></div>
+                        <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Basic stock reports</span></div>
+                        <div class="plan-feature"><i class="fas fa-check-circle"></i><span>GST-compliant invoicing</span></div>
+                        <div class="plan-feature muted"><i class="fas fa-times-circle"></i><span>Advanced analytics</span></div>
+                        <div class="plan-feature muted"><i class="fas fa-times-circle"></i><span>AI demand forecasting</span></div>
+                        <div class="plan-feature muted"><i class="fas fa-times-circle"></i><span>Multi-location support</span></div>
+                        <button class="btn btn-select-plan core mt-3" onclick="selectPlan('CORE')"
+                                th:text="${profile.subscriptionPlan == 'CORE' ? 'Renew Core Plan' : 'Switch to Core Plan'}">
+                            Select Core Plan
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="plan-card popular" id="premiumCard">
+                        <div class="badge-popular"><i class="fas fa-star me-1"></i> Most Popular</div>
+                        <div class="plan-icon" style="background:#faf5ff;"><i class="fas fa-rocket" style="color:#805ad5;"></i></div>
+                        <div class="plan-name" style="color:#805ad5;">Premium</div>
+                        <div class="text-muted" style="font-size:0.85rem;">For scaling businesses</div>
+                        <div class="plan-price" style="color:#805ad5;">&#8377;2,500 <small>/ month</small></div>
+                        <hr class="plan-divider">
+                        <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Unlimited SKUs &amp; products</span></div>
+                        <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Unlimited supplier connections</span></div>
+                        <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Advanced reports &amp; dashboards</span></div>
+                        <div class="plan-feature"><i class="fas fa-check-circle"></i><span>GST-compliant invoicing</span></div>
+                        <div class="plan-feature"><i class="fas fa-check-circle"></i><span>AI demand forecasting</span></div>
+                        <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Multi-location &amp; multi-user</span></div>
+                        <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Priority support</span></div>
+                        <button class="btn btn-select-plan premium mt-3" onclick="selectPlan('PREMIUM')"
+                                th:text="${profile.subscriptionPlan == 'PREMIUM' ? 'Renew Premium Plan' : 'Upgrade to Premium'}">
+                            Select Premium Plan
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hidden form -->
+            <form id="planForm" th:action="@{/business-profile/subscription/select}" method="post">
+                <input type="hidden" name="profileId" th:value="${profileId}">
+                <input type="hidden" name="plan" id="selectedPlan" value="">
+            </form>
+        </div>
     </div>
 
-    <!-- Plan Cards -->
-    <div class="row g-4 mb-4" th:classappend="${profile.verificationStatus?.name() != 'VERIFIED'} ? 'plans-locked' : ''">
+    <!-- ================================================================
+         PLAN SELECTION VIEW — shown when no active subscription yet
+         ================================================================ -->
+    <div th:if="${!profile.hasActiveSubscription()}">
 
-        <!-- Core Plan -->
-        <div class="col-md-6">
-            <div class="plan-card" id="coreCard">
-                <div class="plan-icon" style="background:#ebf4ff;">
-                    <i class="fas fa-seedling" style="color:#4299e1;"></i>
-                </div>
-                <div class="plan-name text-primary">Core</div>
-                <div class="text-muted" style="font-size:0.85rem;">For small / growing businesses</div>
-                <div class="plan-price" style="color:#4299e1;">
-                    ₹500 <small>/ month</small>
-                </div>
-                <hr class="plan-divider">
-                <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Inventory tracking (up to 500 SKUs)</span></div>
-                <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Supplier management (up to 10)</span></div>
-                <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Basic stock reports</span></div>
-                <div class="plan-feature"><i class="fas fa-check-circle"></i><span>GST-compliant invoicing</span></div>
-                <div class="plan-feature muted"><i class="fas fa-times-circle"></i><span>Advanced analytics</span></div>
-                <div class="plan-feature muted"><i class="fas fa-times-circle"></i><span>AI demand forecasting</span></div>
-                <div class="plan-feature muted"><i class="fas fa-times-circle"></i><span>Multi-location support</span></div>
-                <button class="btn btn-select-plan core mt-3" onclick="selectPlan('CORE')">
-                    Select Core Plan
-                </button>
+        <!-- Verification gate banner -->
+        <div th:if="${profile.verificationStatus?.name() != 'VERIFIED'}" class="alert mb-4 d-flex align-items-start gap-3" style="background:#fff8e1;border:1px solid #f6c026;border-radius:12px;padding:1.25rem 1.5rem;">
+            <i class="fas fa-lock" style="color:#d69e2e;font-size:1.4rem;margin-top:2px;"></i>
+            <div>
+                <strong style="color:#744210;">Subscription locked until your profile is verified</strong>
+                <p class="mb-1 mt-1" style="color:#744210;font-size:0.9rem;">
+                    Our team needs to verify your business profile before you can purchase a plan.
+                    Once verified (usually within 1–2 business days), return here to subscribe.
+                </p>
+                <span th:switch="${profile.verificationStatus?.name()}">
+                    <span th:case="'PENDING'" class="badge" style="background:#f6c026;color:#744210;"><i class="fas fa-clock me-1"></i> Under Review — Please wait for admin approval</span>
+                    <span th:case="'REJECTED'" class="badge bg-danger"><i class="fas fa-times-circle me-1"></i> Rejected — Please re-submit your profile for verification</span>
+                    <span th:case="*" class="badge bg-secondary"><i class="fas fa-edit me-1"></i> Draft — Please submit your profile for verification first</span>
+                </span>
             </div>
         </div>
 
-        <!-- Premium Plan -->
-        <div class="col-md-6">
-            <div class="plan-card popular" id="premiumCard">
-                <div class="badge-popular"><i class="fas fa-star me-1"></i> Most Popular</div>
-                <div class="plan-icon" style="background:#faf5ff;">
-                    <i class="fas fa-rocket" style="color:#805ad5;"></i>
+        <!-- Plan Cards -->
+        <div class="row g-4 mb-4" th:classappend="${profile.verificationStatus?.name() != 'VERIFIED'} ? 'plans-locked' : ''">
+
+            <!-- Core Plan -->
+            <div class="col-md-6">
+                <div class="plan-card" id="coreCard">
+                    <div class="plan-icon" style="background:#ebf4ff;">
+                        <i class="fas fa-seedling" style="color:#4299e1;"></i>
+                    </div>
+                    <div class="plan-name text-primary">Core</div>
+                    <div class="text-muted" style="font-size:0.85rem;">For small / growing businesses</div>
+                    <div class="plan-price" style="color:#4299e1;">
+                        &#8377;500 <small>/ month</small>
+                    </div>
+                    <hr class="plan-divider">
+                    <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Inventory tracking (up to 500 SKUs)</span></div>
+                    <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Supplier management (up to 10)</span></div>
+                    <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Basic stock reports</span></div>
+                    <div class="plan-feature"><i class="fas fa-check-circle"></i><span>GST-compliant invoicing</span></div>
+                    <div class="plan-feature muted"><i class="fas fa-times-circle"></i><span>Advanced analytics</span></div>
+                    <div class="plan-feature muted"><i class="fas fa-times-circle"></i><span>AI demand forecasting</span></div>
+                    <div class="plan-feature muted"><i class="fas fa-times-circle"></i><span>Multi-location support</span></div>
+                    <button class="btn btn-select-plan core mt-3" onclick="selectPlan('CORE')">
+                        Select Core Plan
+                    </button>
                 </div>
-                <div class="plan-name" style="color:#805ad5;">Premium</div>
-                <div class="text-muted" style="font-size:0.85rem;">For scaling businesses</div>
-                <div class="plan-price" style="color:#805ad5;">
-                    ₹2,500 <small>/ month</small>
+            </div>
+
+            <!-- Premium Plan -->
+            <div class="col-md-6">
+                <div class="plan-card popular" id="premiumCard">
+                    <div class="badge-popular"><i class="fas fa-star me-1"></i> Most Popular</div>
+                    <div class="plan-icon" style="background:#faf5ff;">
+                        <i class="fas fa-rocket" style="color:#805ad5;"></i>
+                    </div>
+                    <div class="plan-name" style="color:#805ad5;">Premium</div>
+                    <div class="text-muted" style="font-size:0.85rem;">For scaling businesses</div>
+                    <div class="plan-price" style="color:#805ad5;">
+                        &#8377;2,500 <small>/ month</small>
+                    </div>
+                    <hr class="plan-divider">
+                    <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Unlimited SKUs &amp; products</span></div>
+                    <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Unlimited supplier connections</span></div>
+                    <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Advanced reports &amp; dashboards</span></div>
+                    <div class="plan-feature"><i class="fas fa-check-circle"></i><span>GST-compliant invoicing</span></div>
+                    <div class="plan-feature"><i class="fas fa-check-circle"></i><span>AI demand forecasting</span></div>
+                    <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Multi-location &amp; multi-user</span></div>
+                    <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Priority support</span></div>
+                    <button class="btn btn-select-plan premium mt-3" onclick="selectPlan('PREMIUM')">
+                        Select Premium Plan
+                    </button>
                 </div>
-                <hr class="plan-divider">
-                <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Unlimited SKUs &amp; products</span></div>
-                <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Unlimited supplier connections</span></div>
-                <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Advanced reports &amp; dashboards</span></div>
-                <div class="plan-feature"><i class="fas fa-check-circle"></i><span>GST-compliant invoicing</span></div>
-                <div class="plan-feature"><i class="fas fa-check-circle"></i><span>AI demand forecasting</span></div>
-                <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Multi-location &amp; multi-user</span></div>
-                <div class="plan-feature"><i class="fas fa-check-circle"></i><span>Priority support</span></div>
-                <button class="btn btn-select-plan premium mt-3" onclick="selectPlan('PREMIUM')">
-                    Select Premium Plan
-                </button>
             </div>
         </div>
-    </div>
 
-    <!-- Hidden form: posts selected plan -->
-    <form id="planForm" th:action="@{/business-profile/subscription/select}" method="post">
-        <input type="hidden" name="profileId" th:value="${profileId}">
-        <input type="hidden" name="plan" id="selectedPlan" value="">
-    </form>
+        <!-- Hidden form: posts selected plan -->
+        <form id="planForm" th:action="@{/business-profile/subscription/select}" method="post">
+            <input type="hidden" name="profileId" th:value="${profileId}">
+            <input type="hidden" name="plan" id="selectedPlan" value="">
+        </form>
+
+    </div>
+    <!-- End Plan Selection View -->
 
     <!-- Navigation -->
-    <div class="d-flex justify-content-between">
+    <div class="d-flex justify-content-between mt-4">
         <a th:href="@{/business-profile/bank(profileId=${profileId})}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left me-1"></i> Back
         </a>
-        <a th:href="@{/business-profile/review(profileId=${profileId})}" class="btn btn-outline-primary">
+        <a th:if="${!profile.hasActiveSubscription()}" th:href="@{/business-profile/review(profileId=${profileId})}" class="btn btn-outline-primary">
             Skip for now <i class="fas fa-arrow-right ms-1"></i>
+        </a>
+        <a th:if="${profile.hasActiveSubscription()}" th:href="@{/business-profile/review(profileId=${profileId})}" class="btn btn-success">
+            <i class="fas fa-arrow-right me-1"></i> Continue to Review
         </a>
     </div>
 </div>

@@ -102,9 +102,17 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .and()
                 .successHandler(googleOAuth2SuccessHandler)
             .and()
+            .rememberMe()
+                .rememberMeParameter("remember-me")
+                .key("flowtrack-secure-remember-me-key-2026")
+                .tokenValiditySeconds(30 * 24 * 60 * 60)  // 30 days
+                .userDetailsService(userDetailsService)
+            .and()
             .logout()
                 .logoutUrl("/logout")
                 .logoutSuccessUrl("/landing?logout=true")
+                .invalidateHttpSession(true)
+                .deleteCookies("JSESSIONID", "remember-me")
                 .permitAll();
     }
 }
